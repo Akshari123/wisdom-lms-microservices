@@ -3,7 +3,6 @@ package com.wisdom.classservice.service;
 import com.wisdom.classservice.entity.EducationClass;
 import com.wisdom.classservice.exception.ResourceNotFoundException;
 import com.wisdom.classservice.repository.ClassRepository;
-
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -21,37 +20,37 @@ public class ClassService {
         return classRepository.findAll();
     }
 
-    public EducationClass getClassById(Long id) {
+    public EducationClass getClassById(String id) {
         return classRepository.findById(id)
                 .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Class not found with id: " + id
-                        )
-                );
+                        new ResourceNotFoundException("Class not found with id: " + id));
     }
 
     public EducationClass createClass(EducationClass educationClass) {
-        educationClass.setId(null);
         return classRepository.save(educationClass);
     }
 
-    public EducationClass updateClass(
-            Long id,
-            EducationClass updatedClass) {
+    public EducationClass updateClass(String id, EducationClass classDetails) {
 
-        EducationClass existingClass = getClassById(id);
+        EducationClass existingClass = classRepository.findById(id)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Class not found with id: " + id));
 
-        existingClass.setSubject(updatedClass.getSubject());
-        existingClass.setTeacherId(updatedClass.getTeacherId());
-        existingClass.setYear(updatedClass.getYear());
-        existingClass.setClassDate(updatedClass.getClassDate());
-        existingClass.setClassTime(updatedClass.getClassTime());
+        existingClass.setSubject(classDetails.getSubject());
+        existingClass.setTeacherId(classDetails.getTeacherId());
+        existingClass.setYear(classDetails.getYear());
+        existingClass.setClassDate(classDetails.getClassDate());
+        existingClass.setClassTime(classDetails.getClassTime());
 
         return classRepository.save(existingClass);
     }
 
-    public void deleteClass(Long id) {
-        EducationClass existingClass = getClassById(id);
+    public void deleteClass(String id) {
+
+        EducationClass existingClass = classRepository.findById(id)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Class not found with id: " + id));
+
         classRepository.delete(existingClass);
     }
 }

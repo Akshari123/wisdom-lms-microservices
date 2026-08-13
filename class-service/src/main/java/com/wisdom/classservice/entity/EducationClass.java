@@ -1,48 +1,28 @@
 package com.wisdom.classservice.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
 
-@Entity
-@Table(name = "classes")
+@Document(collection = "classes")
 public class EducationClass {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private String id;
 
-    @Column(nullable = false)
     private String subject;
-
-    @Column(name = "teacher_id", nullable = false)
     private Long teacherId;
-
-    @Column(nullable = false)
     private String year;
-
-    @Column(name = "class_date", nullable = false)
     private LocalDate classDate;
-
-    @Column(name = "class_time", nullable = false)
     private LocalTime classTime;
 
     public EducationClass() {
     }
 
-    public EducationClass(
-            String subject,
-            Long teacherId,
-            String year,
-            LocalDate classDate,
-            LocalTime classTime) {
-
+    public EducationClass(String subject, Long teacherId, String year,
+                          LocalDate classDate, LocalTime classTime) {
         this.subject = subject;
         this.teacherId = teacherId;
         this.year = year;
@@ -50,11 +30,11 @@ public class EducationClass {
         this.classTime = classTime;
     }
 
-    public Long getId() {
+    public String getId() {
         return id;
     }
 
-    public void setId(Long id) {
+    public void setId(String id) {
         this.id = id;
     }
 
