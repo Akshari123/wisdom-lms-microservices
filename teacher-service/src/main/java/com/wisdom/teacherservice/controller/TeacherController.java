@@ -25,7 +25,7 @@ public class TeacherController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Teacher> getTeacherById(@PathVariable Long id) {
+    public ResponseEntity<Teacher> getTeacherById(@PathVariable String id) {
         return ResponseEntity.ok(teacherService.getTeacherById(id));
     }
 
@@ -42,7 +42,7 @@ public class TeacherController {
 
     @PutMapping("/{id}")
     public ResponseEntity<Teacher> updateTeacher(
-            @PathVariable Long id,
+            @PathVariable String id,
             @Valid @RequestBody Teacher teacher) {
 
         return ResponseEntity.ok(
@@ -51,7 +51,7 @@ public class TeacherController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteTeacher(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteTeacher(@PathVariable String id) {
         teacherService.deleteTeacher(id);
         return ResponseEntity.noContent().build();
     }

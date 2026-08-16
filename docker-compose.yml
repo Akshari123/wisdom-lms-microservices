@@ -1,0 +1,136 @@
+services:
+  mongodb:
+    image: mongo:latest
+    container_name: wisdom-mongodb
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - wisdom-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  auth-service:
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile
+    container_name: wisdom-auth-service
+    restart: on-failure
+    ports:
+      - "8082:8082"
+    environment:
+      - SPRING_MONGODB_URI=mongodb://mongodb:27017/wisdom_lms_auth
+      - SPRING_DATA_MONGODB_URI=mongodb://mongodb:27017/wisdom_lms_auth
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - wisdom-network
+
+  student-service:
+    build:
+      context: ./student-service
+      dockerfile: Dockerfile
+    container_name: wisdom-student-service
+    restart: on-failure
+    ports:
+      - "8081:8081"
+    environment:
+      - SPRING_MONGODB_URI=mongodb://mongodb:27017/studentdb
+      - SPRING_DATA_MONGODB_URI=mongodb://mongodb:27017/studentdb
+      - API_KEY=student-secret-2026
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - wisdom-network
+
+  teacher-service:
+    build:
+      context: ./teacher-service
+      dockerfile: Dockerfile
+    container_name: wisdom-teacher-service
+    restart: on-failure
+    ports:
+      - "8083:8083"
+    environment:
+      - SPRING_MONGODB_URI=mongodb://mongodb:27017/wisdom_teacher_db
+      - SPRING_DATA_MONGODB_URI=mongodb://mongodb:27017/wisdom_teacher_db
+      - API_KEY=wisdom-teacher-secret-2026
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - wisdom-network
+
+  class-service:
+    build:
+      context: ./class-service
+      dockerfile: Dockerfile
+    container_name: wisdom-class-service
+    restart: on-failure
+    ports:
+      - "8084:8084"
+    environment:
+      - SPRING_MONGODB_URI=mongodb://mongodb:27017/classdb
+      - SPRING_DATA_MONGODB_URI=mongodb://mongodb:27017/classdb
+      - API_KEY=wisdom-lms-secret-key
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - wisdom-network
+
+  payment-service:
+    build:
+      context: ./payment-service
+      dockerfile: Dockerfile
+    container_name: wisdom-payment-service
+    restart: on-failure
+    ports:
+      - "8085:8085"
+    environment:
+      - SPRING_MONGODB_URI=mongodb://mongodb:27017/wisdom_payment
+      - SPRING_DATA_MONGODB_URI=mongodb://mongodb:27017/wisdom_payment
+      - PAYMENT_API_KEY=wisdom-payment-key-2026
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - wisdom-network
+
+  gateway-service:
+    build:
+      context: ./gateway-service
+      dockerfile: Dockerfile
+    container_name: wisdom-gateway-service
+    restart: on-failure
+    ports:
+      - "8080:8080"
+    environment:
+      - AUTH_SERVICE_URI=http://auth-service:8082
+      - STUDENT_SERVICE_URI=http://student-service:8081
+      - TEACHER_SERVICE_URI=http://teacher-service:8083
+      - CLASS_SERVICE_URI=http://class-service:8084
+      - PAYMENT_SERVICE_URI=http://payment-service:8085
+    depends_on:
+      - auth-service
+      - student-service
+      - teacher-service
+      - class-service
+      - payment-service
+    networks:
+      - wisdom-network
+
+networks:
+  wisdom-network:
+    driver: bridge
+
+volumes:
+  mongo_data:
