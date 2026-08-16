@@ -21,7 +21,7 @@ public class TeacherService {
         return teacherRepository.findAll();
     }
 
-    public Teacher getTeacherById(Long id) {
+    public Teacher getTeacherById(String id) {
         return teacherRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
@@ -40,7 +40,7 @@ public class TeacherService {
         return teacherRepository.save(teacher);
     }
 
-    public Teacher updateTeacher(Long id, Teacher updatedTeacher) {
+    public Teacher updateTeacher(String id, Teacher updatedTeacher) {
         Teacher existingTeacher = getTeacherById(id);
 
         if (!existingTeacher.getEmail().equals(updatedTeacher.getEmail())
@@ -60,7 +60,7 @@ public class TeacherService {
         return teacherRepository.save(existingTeacher);
     }
 
-    public void deleteTeacher(Long id) {
+    public void deleteTeacher(String id) {
         Teacher teacher = getTeacherById(id);
         teacherRepository.delete(teacher);
     }

@@ -1,40 +1,40 @@
 package com.wisdom.teacherservice.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.Indexed;
+import org.springframework.data.mongodb.core.mapping.Document;
 
-@Entity
-@Table(name = "teachers")
+@Document(collection = "teachers")
 public class Teacher {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private String id;
 
     @NotBlank(message = "Teacher name is required")
-    @Column(nullable = false)
     private String name;
 
     @NotBlank(message = "Email is required")
     @Email(message = "Enter a valid email address")
-    @Column(nullable = false, unique = true)
+    @Indexed(unique = true)
     private String email;
 
     @NotBlank(message = "Phone number is required")
-    @Column(nullable = false)
     private String phone;
 
     @NotBlank(message = "Subject is required")
-    @Column(nullable = false)
     private String subject;
 
     public Teacher() {
+    }
+
+    public Teacher(String id, String name, String email, String phone, String subject) {
+        this.id = id;
+        this.name = name;
+        this.email = email;
+        this.phone = phone;
+        this.subject = subject;
     }
 
     public Teacher(String name, String email, String phone, String subject) {
@@ -44,11 +44,11 @@ public class Teacher {
         this.subject = subject;
     }
 
-    public Long getId() {
+    public String getId() {
         return id;
     }
 
-    public void setId(Long id) {
+    public void setId(String id) {
         this.id = id;
     }
 

@@ -1,4 +1,4 @@
-package com.wisdom.teacherservice.config;
+package com.wisdom.studentservice.config;
 
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
@@ -14,11 +14,11 @@ public class OpenApiConfig {
     private static final String SECURITY_SCHEME_NAME = "ApiKeyAuth";
 
     @Bean
-    public OpenAPI teacherServiceOpenAPI() {
+    public OpenAPI studentServiceOpenAPI() {
         return new OpenAPI()
                 .info(new Info()
-                        .title("Wisdom Teacher Service API")
-                        .description("Teacher Management APIs for Wisdom Education Management System")
+                        .title("Wisdom Student Service API")
+                        .description("Student Management APIs for Wisdom LMS")
                         .version("1.0.0"))
                 .addSecurityItem(
                         new SecurityRequirement().addList(SECURITY_SCHEME_NAME)
