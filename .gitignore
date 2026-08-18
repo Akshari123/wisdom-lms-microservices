@@ -39,3 +39,9 @@ Thumbs.db
 # Docker / Database data directories
 mongo_data/
 data/
+
+# Environment Variables
+.env
+.env.local
+.env.*
+!.env.example

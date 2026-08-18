@@ -25,26 +25,11 @@ public class AuthController {
         return "Auth Service is running!";
     }
 
-    // Register new user
-    @PostMapping("/register")
-    public User register(@RequestBody User user) {
-        return userRepository.save(user);
-    }
-
-    // Login
-    @PostMapping("/login")
-    public String login(@RequestBody User loginUser) {
-
-        User user = userRepository.findByUsername(loginUser.getUsername());
-
-        if (user == null) {
-            return "Invalid username or password";
+    @GetMapping("/me")
+    public User me(org.springframework.security.core.Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return null;
         }
-
-        if (!user.getPassword().equals(loginUser.getPassword())) {
-            return "Invalid username or password";
-        }
-
-        return "Login successful";
+        return userRepository.findByUsername(authentication.getName());
     }
 }

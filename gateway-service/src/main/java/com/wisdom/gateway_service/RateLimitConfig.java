@@ -1,99 +1,79 @@
 package com.wisdom.gateway_service;
 
+import org.springframework.cloud.gateway.filter.GatewayFilterChain;
+import org.springframework.cloud.gateway.filter.GlobalFilter;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.core.Ordered;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.server.reactive.ServerHttpRequest;
+import org.springframework.stereotype.Component;
+import org.springframework.web.server.ServerWebExchange;
+import reactor.core.publisher.Mono;
+
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import org.springframework.cloud.gateway.filter.ratelimit.KeyResolver;
-import org.springframework.cloud.gateway.filter.ratelimit.RateLimiter;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.http.server.reactive.ServerHttpRequest;
+@Component
+public class RateLimitConfig implements GlobalFilter, Ordered {
 
-import reactor.core.publisher.Mono;
+    private final Map<String, AtomicInteger> requests = new ConcurrentHashMap<>();
+    private final Map<String, Long> timestamps = new ConcurrentHashMap<>();
 
-@Configuration
-public class RateLimitConfig {
+    @Override
+    public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+        ServerHttpRequest request = exchange.getRequest();
+        String path = request.getURI().getPath();
 
-    // Identify users by IP address
-    @Bean
-    public KeyResolver userKeyResolver() {
-        return exchange -> {
-            ServerHttpRequest request = exchange.getRequest();
+        // Apply rate limit only to API routes
+        if (!path.startsWith("/api/")) {
+            return chain.filter(exchange);
+        }
 
-            String ip = request.getRemoteAddress() != null
-                    ? request.getRemoteAddress()
-                            .getAddress()
-                            .getHostAddress()
-                    : "unknown";
+        // Client Identification: Prefer JWT, fallback to IP
+        String key = request.getRemoteAddress() != null 
+                ? request.getRemoteAddress().getAddress().getHostAddress() 
+                : "unknown";
+                
+        String authHeader = request.getHeaders().getFirst("Authorization");
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            key = authHeader.substring(7); // Use JWT token as identifier
+        }
 
-            return Mono.just(ip);
-        };
-    }
+        long now = System.currentTimeMillis();
+        timestamps.putIfAbsent(key, now);
+        requests.putIfAbsent(key, new AtomicInteger(0));
 
-    // Custom RateLimiter bean
-    @Bean
-    public RateLimiter<SimpleRateLimiter.Config> simpleRateLimiter() {
-        return new SimpleRateLimiter();
-    }
+        long startTime = timestamps.get(key);
 
-    // Simple in-memory RateLimiter
-    public static class SimpleRateLimiter
-            implements RateLimiter<SimpleRateLimiter.Config> {
+        // Reset time window (1 second)
+        if (now - startTime >= 1000) {
+            timestamps.put(key, now);
+            requests.put(key, new AtomicInteger(0));
+        }
 
-        private final Map<String, AtomicInteger> requests =
-                new ConcurrentHashMap<>();
+        int count = requests.get(key).incrementAndGet();
 
-        private final Map<String, Long> timestamps =
-                new ConcurrentHashMap<>();
-
-        @Override
-        public Mono<Response> isAllowed(String routeId, String id) {
-
-            long now = System.currentTimeMillis();
-
-            timestamps.putIfAbsent(id, now);
-            requests.putIfAbsent(id, new AtomicInteger(0));
-
-            long startTime = timestamps.get(id);
-
-            // Reset after 1 second
-            if (now - startTime >= 1000) {
-                timestamps.put(id, now);
-                requests.put(id, new AtomicInteger(0));
-            }
-
-            int count = requests.get(id).incrementAndGet();
-
-            // Allow 5 requests per second
-            if (count <= 5) {
-                return Mono.just(
-                        new Response(true, Map.of())
-                );
-            }
-
-            // Reject after 5 requests
-            return Mono.just(
-                    new Response(false, Map.of())
+        // 5 requests per second limit
+        if (count > 5) {
+            exchange.getResponse().setStatusCode(HttpStatus.TOO_MANY_REQUESTS);
+            exchange.getResponse().getHeaders().setContentType(MediaType.APPLICATION_JSON);
+            
+            String jsonResponse = "{\n  \"status\": 429,\n  \"error\": \"Too Many Requests\",\n  \"message\": \"Rate limit exceeded\"\n}";
+            byte[] bytes = jsonResponse.getBytes(StandardCharsets.UTF_8);
+            
+            return exchange.getResponse().writeWith(
+                    Mono.just(exchange.getResponse().bufferFactory().wrap(bytes))
             );
         }
 
-        @Override
-        public Class<Config> getConfigClass() {
-            return Config.class;
-        }
+        return chain.filter(exchange);
+    }
 
-        @Override
-        public Config newConfig() {
-            return new Config();
-        }
-
-        @Override
-        public Map<String, Config> getConfig() {
-            return Map.of();
-        }
-
-        public static class Config {
-        }
+    @Override
+    public int getOrder() {
+        return -100; // Run early, before routing filters
     }
 }

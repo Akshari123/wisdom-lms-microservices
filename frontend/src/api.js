@@ -1,12 +1,11 @@
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080').replace(/\/$/, '');
-const gatewayApiKey = import.meta.env.VITE_API_KEY || '';
-
 async function request(path, options = {}) {
   const headers = new Headers(options.headers || {});
   const hasBody = options.body !== undefined && options.body !== null;
 
-  if (gatewayApiKey) {
-    headers.set('X-API-KEY', gatewayApiKey);
+  const token = localStorage.getItem('token');
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
   }
 
   if (hasBody && !headers.has('Content-Type')) {
@@ -42,16 +41,7 @@ function jsonBody(value) {
 export const api = {
   auth: {
     test: () => request('/api/auth/test'),
-    login: (payload) =>
-      request('/api/auth/login', {
-        method: 'POST',
-        body: jsonBody(payload)
-      }),
-    register: (payload) =>
-      request('/api/auth/register', {
-        method: 'POST',
-        body: jsonBody(payload)
-      })
+    me: () => request('/api/auth/me')
   },
   students: {
     list: () => request('/api/students'),

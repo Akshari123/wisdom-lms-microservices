@@ -6,8 +6,7 @@ const tabs = [
   { id: 'students', label: 'Students' },
   { id: 'teachers', label: 'Teachers' },
   { id: 'classes', label: 'Classes' },
-  { id: 'payments', label: 'Payments' },
-  { id: 'auth', label: 'Authentication' }
+  { id: 'payments', label: 'Payments' }
 ];
 
 function formatMoney(value) {
@@ -67,6 +66,8 @@ function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [state, setState] = useLoadState();
   const [globalMessage, setGlobalMessage] = useState('');
+  const [user, setUser] = useState(null);
+  const [authChecking, setAuthChecking] = useState(true);
 
   const loadAll = async () => {
     setState((current) => ({ ...current, loading: true, error: null }));
@@ -99,8 +100,39 @@ function App() {
   };
 
   useEffect(() => {
-    loadAll();
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlToken = urlParams.get('token');
+    if (urlToken) {
+      localStorage.setItem('token', urlToken);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
+    const token = localStorage.getItem('token');
+    if (token) {
+      api.auth.me()
+        .then(userData => {
+          if (userData) {
+            setUser(userData);
+            loadAll();
+          } else {
+            localStorage.removeItem('token');
+          }
+        })
+        .catch(() => {
+          localStorage.removeItem('token');
+        })
+        .finally(() => {
+          setAuthChecking(false);
+        });
+    } else {
+      setAuthChecking(false);
+    }
   }, []);
+
+  const logout = () => {
+    localStorage.removeItem('token');
+    setUser(null);
+  };
 
   const stats = useMemo(
     () => buildStats(state.students, state.teachers, state.classes, state.payments),
@@ -166,22 +198,39 @@ function App() {
       await api.payments.updateStatus(id, { status });
       setGlobalMessage('Payment status updated');
       await loadAll();
-    },
-    async login(payload) {
-      const result = await api.auth.login(payload);
-      setGlobalMessage(typeof result === 'string' ? result : 'Logged in');
-      await loadAll();
-    },
-    async register(payload) {
-      const result = await api.auth.register(payload);
-      setGlobalMessage(
-        typeof result === 'string'
-          ? result
-          : `Registered ${result?.username || 'user'}`
-      );
-      await loadAll();
     }
   };
+
+  if (authChecking) {
+    return (
+      <div className="app-shell" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', flexDirection: 'column' }}>
+        <div className="brand-mark" style={{ marginBottom: '1rem' }}>W</div>
+        <div style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>Wisdom LMS</div>
+        <div style={{ color: '#666', marginTop: '0.5rem' }}>Checking your session...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="app-shell" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+        <div className="panel" style={{ maxWidth: '400px', width: '100%', padding: '2rem', textAlign: 'center' }}>
+          <div className="brand-block" style={{ justifyContent: 'center', marginBottom: '2rem' }}>
+            <div className="brand-mark">W</div>
+            <div style={{ textAlign: 'left' }}>
+              <div className="brand-title">Wisdom LMS</div>
+              <div className="brand-subtitle">Learning Management System</div>
+            </div>
+          </div>
+          <h2 style={{ marginBottom: '1rem' }}>Welcome to Wisdom LMS</h2>
+          <p style={{ marginBottom: '2rem', color: '#666' }}>Sign in with your Google account to continue.</p>
+          <a href="http://localhost:8080/api/auth/oauth2/authorization/google" className="primary-button" style={{ display: 'inline-block', textDecoration: 'none', width: '100%', boxSizing: 'border-box' }}>
+            Continue with Google
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="app-shell">
@@ -213,6 +262,17 @@ function App() {
             This frontend talks to the gateway, which forwards requests to the
             backend services with the required API key headers.
           </p>
+        </div>
+
+        <div className="sidebar-card" style={{ marginTop: 'auto' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
+            {user.picture ? <img src={user.picture} alt="Profile" style={{ width: '36px', height: '36px', borderRadius: '50%' }} /> : null}
+            <div style={{ overflow: 'hidden' }}>
+              <div style={{ fontWeight: 'bold', fontSize: '0.9em', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{user.name || user.email}</div>
+              <div style={{ fontSize: '0.8em', color: '#666' }}>{user.email}</div>
+            </div>
+          </div>
+          <button className="secondary-button" style={{ width: '100%' }} onClick={logout}>Logout</button>
         </div>
       </aside>
 
@@ -282,10 +342,6 @@ function App() {
             onProcess={actions.processPayment}
             onUpdateStatus={actions.updatePaymentStatus}
           />
-        ) : null}
-
-        {activeTab === 'auth' ? (
-          <AuthSection loading={state.loading} onLogin={actions.login} onRegister={actions.register} />
         ) : null}
       </main>
     </div>
@@ -713,99 +769,6 @@ function PaymentsSection({ loading, payments, onProcess, onUpdateStatus }) {
   );
 }
 
-function AuthSection({ loading, onLogin, onRegister }) {
-  const loginEmpty = { username: '', password: '' };
-  const registerEmpty = { username: '', password: '', role: 'STUDENT' };
-  const [mode, setMode] = useState('login');
-  const [loginForm, setLoginForm] = useState(loginEmpty);
-  const [registerForm, setRegisterForm] = useState(registerEmpty);
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState('');
-
-  const submitLogin = async (event) => {
-    event.preventDefault();
-    setBusy(true);
-    setMessage('');
-    try {
-      await onLogin(loginForm);
-      setMessage('Login request completed.');
-    } catch (error) {
-      setMessage(error.message || 'Login failed');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const submitRegister = async (event) => {
-    event.preventDefault();
-    setBusy(true);
-    setMessage('');
-    try {
-      await onRegister(registerForm);
-      setMessage('Registration request completed.');
-    } catch (error) {
-      setMessage(error.message || 'Registration failed');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <section className="panel">
-      <SectionHeader
-        title="Authentication"
-        description="Call the auth service to register or log in users."
-      />
-
-      <div className="toggle-row">
-        <button className={mode === 'login' ? 'toggle active' : 'toggle'} onClick={() => setMode('login')}>
-          Login
-        </button>
-        <button className={mode === 'register' ? 'toggle active' : 'toggle'} onClick={() => setMode('register')}>
-          Register
-        </button>
-      </div>
-
-      {mode === 'login' ? (
-        <FormGrid onSubmit={submitLogin} formError="">
-          <InputField label="Username" value={loginForm.username} onChange={(value) => setLoginForm({ ...loginForm, username: value })} />
-          <InputField label="Password" type="password" value={loginForm.password} onChange={(value) => setLoginForm({ ...loginForm, password: value })} />
-          <div className="form-actions">
-            <button className="primary-button" disabled={busy || loading}>
-              Log in
-            </button>
-          </div>
-        </FormGrid>
-      ) : (
-        <FormGrid onSubmit={submitRegister} formError="">
-          <InputField label="Username" value={registerForm.username} onChange={(value) => setRegisterForm({ ...registerForm, username: value })} />
-          <InputField label="Password" type="password" value={registerForm.password} onChange={(value) => setRegisterForm({ ...registerForm, password: value })} />
-          <label className="field">
-            <span>Role</span>
-            <select
-              value={registerForm.role}
-              onChange={(event) => setRegisterForm({ ...registerForm, role: event.target.value })}
-            >
-              <option value="STUDENT">STUDENT</option>
-              <option value="TEACHER">TEACHER</option>
-              <option value="ADMIN">ADMIN</option>
-            </select>
-          </label>
-          <div className="form-actions">
-            <button className="primary-button" disabled={busy || loading}>
-              Register
-            </button>
-          </div>
-        </FormGrid>
-      )}
-
-      {message ? <div className="banner info">{message}</div> : null}
-      <p className="hint-copy">
-        Auth responses are plain text in the current backend, so this panel shows the live response message directly.
-      </p>
-    </section>
-  );
-}
 
 function SectionHeader({ title, description }) {
   return (
